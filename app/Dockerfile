@@ -8,7 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies with production flag and clean cache
-RUN npm ci --only=production && npm cache clean --force
+RUN npm install --omit=dev && npm cache clean --force
+
 
 # Copy application source code
 COPY . .
