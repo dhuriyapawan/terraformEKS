@@ -27,14 +27,24 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
 
-      - name: Install dependencies
-        # Use 'npm ci' if you have a lock file, otherwise fall back to 'npm install'
+      - name: Install Node.js dependencies
+        working-directory: terraformEKS  # <-- folder where package.json lives
         run: |
+          echo "Checking for package.json..."
+          if [ ! -f package.json ]; then
+            echo "❌ package.json not found in $(pwd)"
+            exit 1
+          fi
+          
+          # Prefer npm ci if a lock file exists
           if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ] || [ -f yarn.lock ]; then
+            echo "Lock file found. Running npm ci..."
             npm ci
           else
+            echo "No lock file found. Running npm install..."
             npm install
           fi
+
       - name: Run linting
         run: |
           cd app
