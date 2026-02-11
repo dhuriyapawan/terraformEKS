@@ -80,8 +80,7 @@ jobs:
               --name $EKS_CLUSTER_NAME \
               --region $AWS_REGION \
               --kubernetes-version 1.29 \
-              --role-arn $EKS_ROLE_ARN \
-              --resources-vpc-config subnetIds=$SUBNET_IDS,securityGroupIds=$SECURITY_GROUP_IDS
+              
               
             echo "Waiting for cluster to become ACTIVE..."
             aws eks wait cluster-active --name $EKS_CLUSTER_NAME --region $AWS_REGION
