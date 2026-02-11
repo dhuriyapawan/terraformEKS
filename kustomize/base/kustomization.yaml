@@ -1,12 +1,12 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+namespace: default
+
 resources:
   - deploy.yaml
   - svc.yaml
   - ingress.yaml
-
-namespace: default  # Ensures all resources are deployed to the correct namespace
 
 configMapGenerator:
   - name: app-config
@@ -14,6 +14,6 @@ configMapGenerator:
       - ENV=production
       - LOG_LEVEL=info
 
-commonLabels:
+labels:
   app: web
   environment: production

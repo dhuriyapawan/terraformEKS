@@ -1,72 +1,84 @@
-apiVersion : apps/v1
-kind : Deployment
-metadata :
-  name : web-deployment
-  namespace : default
-  labels :
-    app : web
-    version : v1
-spec :
-  replicas : 2
-  strategy :
-    type : RollingUpdate
-    rollingUpdate :
-      maxUnavailable : 1
-      maxSurge : 1
-  selector :  
-    matchLabels :
-      app : web
-  template :
-    metadata :
-      labels :
-        app : web
-        version : v1
-    spec :
-      containers :
-        - name : web-container
-          image : aphraz/node-app:latest
-          imagePolicy : Always
-          ports :
-            - containerPort : 3000
-              name : http
-              protocol : TCP
-          env :
-            - name : NODE_ENV
-              value : production
-            - name : PORT
-              value : "3000"
-          resources :
-            limits :
-              cpu : "500m"
-              memory : "256Mi"
-            requests :
-              cpu : "250m"
-              memory : "128Mi"
-          livenessProbe :
-            httpGet :
-              path : /
-              port : 3000
-            initialDelaySeconds : 30
-            periodSeconds : 10
-            timeoutSeconds : 5
-            failureThreshold : 3
-          readlinessProbe :
-            httpGet :
-              path : /
-              port : 3000
-            initialDelaySeconds : 15
-            periodSeconds : 5
-            timeoutSeconds : 3
-            failureThreshold : 3
-          securityContext:
-          allowPrivilegeEscalation: false
-          runAsNonRoot: true
-          runAsUser: 1001
-          readOnlyRootFilesystem: true
-          capabilities:
-            drop:
-            - ALL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-deployment
+  namespace: default
+  labels:
+    app: web
+    version: v1
+
+spec:
+  replicas: 2
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+
+  selector:
+    matchLabels:
+      app: web
+
+  template:
+    metadata:
+      labels:
+        app: web
+        version: v1
+
+    spec:
       securityContext:
-           runAsNonRoot: true
-           runAsUser: 1001
-           fsGroup: 1001
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+
+      containers:
+        - name: web-container
+          image: aphraz/node-app:latest
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: PORT
+              value: "3000"
+
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+            requests:
+              cpu: "250m"
+              memory: "128Mi"
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
