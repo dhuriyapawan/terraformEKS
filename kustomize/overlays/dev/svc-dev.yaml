@@ -1,0 +1,15 @@
+apiVersion : v1
+kind : service
+metadata:
+  name: web-service
+  labels:
+    app: my-code-app
+    environment: dev
+spec:
+  selector:
+    app: my-code-app
+  ports:
+  - port: 80
+    targetPort: 3000
+    protocol: TCP
+    name: http

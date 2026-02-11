@@ -1,0 +1,34 @@
+apiVersion : networking.k8s.io/v1
+kind : Ingress
+metadata:
+  name: e2ecicd-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-bufferring: "on"
+spec:
+  ingressClassName: nginx
+  tls :
+  - hosts:
+    - prod.afraz.dev
+    secretName: tls-prod-secret
+  rules:
+  - host: prod.afraz.dev
+    http:
+      paths:
+       - path: /
+         pathType: Prefix
+         backend:
+           service:
+             name: web-service
+             port:
+               number: 80
+       - path : /api
+         pathType: Prefix
+         backend:
+           service:
+             name: web-service
+             port:
+               number: 8080
