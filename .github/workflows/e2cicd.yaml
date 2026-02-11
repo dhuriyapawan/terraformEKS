@@ -1,228 +1,193 @@
-name : ci cd Pipeline
+name: CI CD Pipeline
 
 on:
-pull_request :
-  types :
-    - closed
-  paths-ignore :
-    - 'VERSION'
-  branches:
-   -dev
-  push :
-   branches:
-   - prod
-   - dev
-   - staging
-   paths-ignore:
-    - 'VERSION'
-    - 'README.md'
+  pull_request:
+    types: [closed]
+    branches: [dev]
+    paths-ignore:
+      - VERSION
 
-  permissions:
-    contents: write
+  push:
+    branches:
+      - dev
+      - prod
+      - staging
+    paths-ignore:
+      - VERSION
+      - README.md
 
-  jobs: 
-   build :
-     runs-on : ubuntu-latest
-     outputs :
-      releaseTrue : ${{ steps.release-status.outputs.rel-status }}
-      currentVersion : ${{ steps.get-version.outputs.version }}
-      currentENV : ${{ steps.get-version.outputs.env }}
-     steps :
-       - name : Checkout code
-         uses : actions/checkout@v3
-       - name: setup Node
-         uses: actions/setup-node@v3
-         with:
-           node-version: 18  
-       - name : Install dependencies
-         run : |
-           cd app
-           npm Install
-       - name : Run tests
-         run : |
-           cd app
-           npm test
-       - name : Determine Version increment
-         id : version-increment
-         run: |
-           commit_message=$(git log -1 --pretty=%B)
-           if [[ "$commit_message" == *"major:"* ]]; then
-             echo "increment=major" >> "$GITHUB_OUTPUT"
-             echo "release=true" >> "$GITHUB_OUTPUT"
-           elif [[ "$commit_message" == "minor:"* ]]; then
-             echo "increment=minor" >> "$GITHUB_OUTPUT"
-             echo "release=true" >> "$GITHUB_OUTPUT"
-           elif [[ "$commit_message" == "patch:"* ]]; then
-             echo "increment=patch" >> "$GITHUB_OUTPUT"
-             echo "release=true" >> "$GITHUB_OUTPUT"
-           else
-             echo "release=false" >> "$GITHUB_OUTPUT"
-           fi
+permissions:
+  contents: write
 
-       - name: Publish Release status
-         id: release-status
-         run: |
-           echo "rel-status=${{ steps.version-increment.outputs.release }}" >> "$GITHUB_OUTPUT"
-         env:
-           release: ${{ steps.version-increment.outputs.release }}
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-     - name: Publish Current Environment
-       id: current-env
-       run: |
-         export ENVIRONMENT=$(echo "${{ github.ref }}" | sed -e "s/refs\/heads\///g")
-         echo "ENV=${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+    outputs:
+      releaseTrue: ${{ steps.release-status.outputs.rel-status }}
+      currentVersion: ${{ steps.get-version.outputs.version }}
+      currentENV: ${{ steps.current-env.outputs.ENV }}
 
-     - name: Get current version
-       id: get-version
-       run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-     - name: Increment version
-       id: increment-version
-       run: echo "new_version=$(docker run --rm -v ${PWD}:/app treeder/bump ${{ steps.version-increment.outputs.increment }})" >> "$GITHUB_OUTPUT"
-       if: |
-         github.ref == 'refs/heads/dev' && 
-         ${{ steps.version-increment.outputs.release }} == 'true'
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
 
-     - name: Update VERSION file
-       run: echo "${{ steps.increment-version.outputs.new_version }}" > VERSION
-       if: |
-         github.ref == 'refs/heads/dev' &&
-         ${{ steps.version-increment.outputs.release }} == 'true'
+      - name: Install dependencies
+        run: |
+          cd app
+          npm install
 
-     - name: Get updated version
-       id: updated-version
-       run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+      - name: Run tests
+        run: |
+          cd app
+          npm test
 
-     - uses: EndBug/add-and-commit@v9
-       name: Commit VERSION file to Dev
-       with:
-         add: 'VERSION'
-         author_name: 'Afraz Ahmed'
-         author_email: 'aphraz@live.com'
-         fetch: false
-         message: 'Updating VERSION file'
-         pathspec_error_handling: ignore
-         push: origin dev --force
-         tag: "${{ steps.updated-version.outputs.version }} --force"
-         tag_push: '--force'
-       if: |
-         github.ref == 'refs/heads/dev' &&
-         ${{ steps.version-increment.outputs.release }} == 'true'
+      - name: Determine version increment
+        id: version-increment
+        run: |
+          commit_message=$(git log -1 --pretty=%B)
 
-     - name : Login to Dockerhub
-       uses: docker/login-action@v2
-       with:
-         username: ${{ secrets.DOCKERHUB_USERNAME }}
-         password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
-
-     - name : Docker Build and Push Dev
-       run: |
-         cd app
-         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-dev .
-         docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-dev
-       if: |
-         github.ref == 'refs/heads/dev'
-     
-     - name : Docker Build and Push Prod
-       run: |
-         cd app
-         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-prod .
-         docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-prod 
-       if: |
-         github.ref == 'refs/heads/prod'
-     
-     - name: Docker build-and-push staging
-       run: |
-         cd app
-         docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-staging .
-         docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-staging 
-       if: |
-         github.ref == 'refs/heads/staging'
-    
-    deployment: 
-      needs: build
-      runs-on : ubuntu-latest
-
-      env:
-       TF_IN_AUTOMATION: "1"
-       S3_BUCKET: ${{ secrets.S3_BUCKET }}
-       S3_REGION: ${{ secrets.S3_REGION }}
-       DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
-       AWS_ACCESS_KEY_ID : ${{ secrets.AWS_ACCESS_KEY_ID }}
-       AWS_SECRET_ACCESS_KEY : ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-       AWS_REGION : ${{ secrets.AWS_REGION }}
-       ENVIRONMENT: ${{ steps.current-env.outputs.ENV }}
-       TF_VAR_environment: ${{ steps.current-env.outputs.ENV }}
-
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
-
-        - name: Terraform CLI setup
-          uses: hashicorp/setup-terraform@v2
-        
-        - name : Install AWS CLI
-          run: |
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install --update
-
-        - name :  Terraform Init EKS
-          run : |
-            cd terraform
-            terraform init \
-            -backend-config="bucket=${S3_BUCKET}" \
-            -backend-config="key=state/${ENVIRONMENT}-env.tfstate" \
-            -backend-config="region=${S3_REGION}" \
-            -backend-config="encrypt=true" \
-            -backend-config="dynamodb_table=${DYNAMODB_TABLE}"
-        - name : Install kubectl
-          uses : azure/setup-kubectl@v3
-          with : 
-           version : 'latest'
-
-        - name : Configure kubectl if EKS running
-          run: aws eks --region ${{ secrets.S3_REGION}} update-kubeconfig --name e2ecicd-eks-${ENVIRONMENT} || Install -m  600 -D /dev/null ~/.kube/config      
-        
-        - name : Terraform Plan EKS
-           id :tf-plan-eks
-           run: |
-            cd terraform
-            export exitcode=0
-            terraform plan -detailed-exitcode -no-color -out=tfplan \
-            export exitcode=$?
-            if [ $exitcode -eq 1 ]; then
-              echo "Terraform plan failed"
-            elif [ $exitcode -eq 2 ]; then
-              echo "Drift detected. Need to run terraform apply"
-              terraform show -no-color tfplan > tfplan.txt
-              echo "exitcode=$exitcode" >> $GITHUB_OUTPUT
-              exit 0
-            else 
-              exit 0
-         fi
-        - name : Deploy EKS e2ecicd-cluster
-           run : |
-            cd terraform 
-            terraform apply -auto-approve  tfplan
-          if : $ {{steps.tf-plan-eks.outputs.exitcode == '2'}}
-
-        - name: create Namespace
-          run : |
-            NAMESPACE=app-${{ steps.current-env.outputs.ENV }}
-            kubectl get ns ${NAMESPACE} || kubectl create ns ${NAMESPACE}
-        - name : update image
-          run : |
-            image=${{ secrets.DOCKER_USERNAME }}/node-app:${{ needs.build.outputs.currentVersion }}-${ENVIRONMENT}
-            sed -i "s|image: .*$|image: ${image}|" kustomize/overlays/${ENVIRONMENT}/deploy-${ENVIRONMENT}.yaml
-
-        - name: Install Kustomized Manifests
-          id: kustomize-deploy
-          run: |
-            kubectl apply -k kustomize/overlays/${ENVIRONMENT} | tee kubeout
-        
-            if grep -q "deployment.*unchanged" kubeout; then
-            echo "needRestart=yes" >> "$GITHUB_OUTPUT"
+          if [[ "$commit_message" == *"major:"* ]]; then
+            echo "increment=major" >> "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$commit_message" == *"minor:"* ]]; then
+            echo "increment=minor" >> "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$commit_message" == *"patch:"* ]]; then
+            echo "increment=patch" >> "$GITHUB_OUTPUT"
+            echo "release=true" >> "$GITHUB_OUTPUT"
           else
-            echo "needRestart=no" >> "$GITHUB_OUTPUT"
-        fi
+            echo "release=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish release status
+        id: release-status
+        run: |
+          echo "rel-status=${{ steps.version-increment.outputs.release }}" >> "$GITHUB_OUTPUT"
+
+      - name: Publish current environment
+        id: current-env
+        run: |
+          ENVIRONMENT="${GITHUB_REF#refs/heads/}"
+          echo "ENV=${ENVIRONMENT}" >> "$GITHUB_OUTPUT"
+
+      - name: Get current version
+        id: get-version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Increment version
+        id: increment-version
+        if: github.ref == 'refs/heads/dev' && steps.version-increment.outputs.release == 'true'
+        run: |
+          echo "new_version=$(docker run --rm -v ${PWD}:/app treeder/bump ${{ steps.version-increment.outputs.increment }})" >> "$GITHUB_OUTPUT"
+
+      - name: Update VERSION file
+        if: github.ref == 'refs/heads/dev' && steps.version-increment.outputs.release == 'true'
+        run: echo "${{ steps.increment-version.outputs.new_version }}" > VERSION
+
+      - name: Get updated version
+        id: updated-version
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Commit VERSION file
+        if: github.ref == 'refs/heads/dev' && steps.version-increment.outputs.release == 'true'
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: VERSION
+          author_name: Afraz Ahmed
+          author_email: aphraz@live.com
+          message: Updating VERSION file
+          push: origin dev --force
+          tag: ${{ steps.updated-version.outputs.version }}
+          tag_push: --force
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_ACCESS_TOKEN }}
+
+      - name: Docker build & push (dev)
+        if: github.ref == 'refs/heads/dev'
+        run: |
+          cd app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-dev .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-dev
+
+      - name: Docker build & push (prod)
+        if: github.ref == 'refs/heads/prod'
+        run: |
+          cd app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-prod .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-prod
+
+      - name: Docker build & push (staging)
+        if: github.ref == 'refs/heads/staging'
+        run: |
+          cd app
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-staging .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/frontend:${{ steps.updated-version.outputs.version }}-staging
+
+  deployment:
+    needs: build
+    runs-on: ubuntu-latest
+
+    env:
+      TF_IN_AUTOMATION: "1"
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_REGION: ${{ secrets.S3_REGION }}
+      DYNAMODB_TABLE: ${{ secrets.DYNAMODB_TABLE }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      ENVIRONMENT: ${{ needs.build.outputs.currentENV }}
+      TF_VAR_environment: ${{ needs.build.outputs.currentENV }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      - name: Install AWS CLI
+        run: |
+          curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+          unzip awscliv2.zip
+          sudo ./aws/install --update
+
+      - name: Terraform Init
+        run: |
+          cd terraform
+          terraform init \
+            -backend-config="bucket=${S3_BUCKET}" \
+            -backend-config="key=state/${ENVIRONMENT}.tfstate" \
+            -backend-config="region=${S3_REGION}" \
+            -backend-config="dynamodb_table=${DYNAMODB_TABLE}"
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v3
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig \
+            --region ${AWS_REGION} \
+            --name e2ecicd-eks-${ENVIRONMENT}
+
+      - name: Terraform Apply
+        run: |
+          cd terraform
+          terraform apply -auto-approve
+
+      - name: Create namespace
+        run: |
+          kubectl get ns app-${ENVIRONMENT} || kubectl create ns app-${ENVIRONMENT}
+
+      - name: Deploy with kustomize
+        run: |
+          kubectl apply -k kustomize/overlays/${ENVIRONMENT}

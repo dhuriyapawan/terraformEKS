@@ -5,10 +5,9 @@ provider "kubernetes" {
 
 # Helm provider for deploying charts
 provider "helm" {
-  kubernetes {
-    config_path = var.kubeconfig_path
-  }
-}
+    #variable for consistency
+    }
+
 
 
 # Updates the kubeconfig to interact with the EKS cluster

@@ -50,8 +50,8 @@ jobs:
         - name: Update deployment image
           run : |
            cd kustomize/base
-           sed -i "s|image: .*|image: ${{ steps.build-and-push.outputs.image }}|g" deployment.yaml
-
+           # tag 
+           sed -i "s|image: .*|image: ${{ steps.build-and-push.outputs.image }}|g"  deploy.yaml
         - name: Commit update deployment
           run : |
             git config --global user.name "github-actions"
