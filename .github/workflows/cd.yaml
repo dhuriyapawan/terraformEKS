@@ -76,21 +76,7 @@ jobs:
 
        - name: Ensure EKS cluster exists
          run: |
-          # Get default VPC ID
-           DEFAULT_VPC_ID=$(aws ec2 describe-vpcs \
-          --filters "Name=isDefault,Values=true" \
-          --query "Vpcs[0].VpcId" --output text --region $AWS_REGION)
-
-          SUBNET_IDS=$(aws ec2 describe-subnets \
-          --filters "Name=vpc-id,Values=$DEFAULT_VPC_ID" \
-          --query "Subnets[].SubnetId" --output text --region $AWS_REGION | tr ' ' ',')
-
-  
-           SECURITY_GROUP_IDS=$(aws ec2 describe-security-groups \
-          --filters "Name=vpc-id,Values=$DEFAULT_VPC_ID" \
-          --query "SecurityGroups[0].GroupId" --output text --region $AWS_REGION)
-
- 
+        
            if ! aws eks describe-cluster --name $EKS_CLUSTER_NAME --region $AWS_REGION &> /dev/null; then
            echo "Cluster $EKS_CLUSTER_NAME not found. Creating..."
 
@@ -101,13 +87,13 @@ jobs:
            --role-arn $EKS_ROLE_ARN \
            --resources-vpc-config subnetIds=$SUBNET_IDS,securityGroupIds=$SECURITY_GROUP_IDS
 
-          echo "Waiting for cluster to become ACTIVE..."
-          aws eks wait cluster-active --name $EKS_CLUSTER_NAME --region $AWS_REGION
+           echo "Waiting for cluster to become ACTIVE..."
+           aws eks wait cluster-active --name $EKS_CLUSTER_NAME --region $AWS_REGION
 
-          echo "Cluster $EKS_CLUSTER_NAME is now ACTIVE."
-          else
-           echo "Cluster $EKS_CLUSTER_NAME already exists."
-          fi
+           echo "Cluster $EKS_CLUSTER_NAME is now ACTIVE."
+           else
+            echo "Cluster $EKS_CLUSTER_NAME already exists."
+           fi
 
 
        - name: Update kubeconfig
