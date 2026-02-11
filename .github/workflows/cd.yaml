@@ -72,6 +72,23 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
+       - name: Ensure EKS cluster exists
+         run: |
+          if ! aws eks describe-cluster --name $EKS_CLUSTER_NAME --region $AWS_REGION &> /dev/null; then
+            echo "Cluster $EKS_CLUSTER_NAME not found. Creating..."
+            aws eks create-cluster \
+              --name $EKS_CLUSTER_NAME \
+              --region $AWS_REGION \
+              --kubernetes-version 1.29 \
+              --role-arn $EKS_ROLE_ARN \
+              --resources-vpc-config subnetIds=$SUBNET_IDS,securityGroupIds=$SECURITY_GROUP_IDS
+              
+            echo "Waiting for cluster to become ACTIVE..."
+            aws eks wait cluster-active --name $EKS_CLUSTER_NAME --region $AWS_REGION
+          else
+            echo "Cluster $EKS_CLUSTER_NAME already exists."
+          fi
+
        - name: Update kubeconfig
          run : |
           aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name ${{ env.EKS_CLUSTER_NAME }}
