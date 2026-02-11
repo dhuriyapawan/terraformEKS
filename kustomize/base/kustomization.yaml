@@ -15,5 +15,6 @@ configMapGenerator:
       - LOG_LEVEL=info
 
 labels:
-  app: web
-  environment: production
+  - pairs:
+      app: web
+      environment: production
