@@ -34,7 +34,8 @@ spec:
 
       containers:
         - name: web-container
-          image: node:trixie-slim
+          image: node:18-alpine
+
           imagePullPolicy: Always
 
           ports:
