@@ -34,7 +34,7 @@ spec:
 
       containers:
         - name: web-container
-          image: node:trixie-slim
+          image: 599548906743.dkr.ecr.us-east-1.amazonaws.com/calculator-app:latest
           imagePullPolicy: Always
 
           ports:
@@ -78,7 +78,7 @@ spec:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
             runAsUser: 1001
-            readOnlyRootFilesystem: true
+            
             capabilities:
               drop:
                 - ALL
